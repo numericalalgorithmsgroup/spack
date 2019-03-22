@@ -920,3 +920,26 @@ env:
                 assert 'shared' not in concrete.variants
             if user.name  == 'mpileaks':
                 assert concrete.variants['shared'].value == user.variants['shared'].value
+
+
+def test_stack_definition_extension(tmpdir, config, mock_packages):
+    filename = str(tmpdir.join('spack.yaml'))
+    with open(filename, 'w') as f:
+        f.write("""\
+env:
+  definitions:
+    - packages: [libelf, mpileaks]
+    - packages: [callpath]
+  specs:
+    - $packages
+""")
+    with tmpdir.as_cwd():
+        env('create', 'test', './spack.yaml')
+        with ev.read('test'):
+            concretize()
+
+        test = ev.read('test')
+
+        assert Spec('libelf') in test.user_specs
+        assert Spec('mpileaks') in test.user_specs
+        assert Spec('callpath') in test.user_specs
