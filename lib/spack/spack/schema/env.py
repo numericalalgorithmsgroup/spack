@@ -78,7 +78,7 @@ schema = {
                                 }
                             },
                             'patternProperties': {
-                                '^(?!when$)\w*': spec_list_schema
+                               r'^(?!when$)\w*': spec_list_schema
                             }
                         }
                     },
@@ -89,7 +89,7 @@ schema = {
                             {'type': 'string'},
                             {'type': 'object',
                              'patternProperties': {
-                                  '\w+': {
+                                  r'\w+': {
                                       'required': ['root'],
                                       'additionalProperties': False,
                                       'properties': {
