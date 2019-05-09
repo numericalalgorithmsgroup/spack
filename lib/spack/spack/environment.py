@@ -1237,9 +1237,9 @@ def _concretize_from_constraints(spec_constraints):
     # Get the named spec even if out of order
     root_spec = [s for s in spec_constraints if s.name]
     if len(root_spec) != 1:
-        m = 'Spec %s is not a valid concretization target' % s.name
-        m += 'all specs must have a single name constraint for '
-        m += 'concretization.'
+        m = 'The constraints %s are not a valid spec ' % spec_constraints
+        m += 'concretization target. all specs must have a single name '
+        m += 'constraint for concretization.'
         raise InvalidSpecConstraintError(m)
     spec_constraints.remove(root_spec[0])
 
