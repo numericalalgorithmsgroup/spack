@@ -11,7 +11,6 @@ import itertools
 import multiprocessing.pool
 import os
 
-import platform as py_platform
 import six
 
 import llnl.util.lang
