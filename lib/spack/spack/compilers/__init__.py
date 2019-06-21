@@ -615,7 +615,7 @@ def make_compiler_list(detected_versions):
         compiler_cls = spack.compilers.class_for_compiler_name(compiler_name)
         spec = spack.spec.CompilerSpec(compiler_cls.name, version)
         paths = [paths.get(l, None) for l in ('cc', 'cxx', 'f77', 'fc')]
-        target = cpu.get_cpu()
+        target = cpu.detect_host()
         compiler = compiler_cls(
             spec, operating_system, str(target.architecture_family), paths
         )
