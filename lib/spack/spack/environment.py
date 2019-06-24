@@ -8,6 +8,7 @@ import re
 import sys
 import shutil
 import copy
+import socket
 
 import ruamel.yaml
 import six
@@ -403,14 +404,9 @@ def _eval_conditional(string):
         'architecture': str(arch),
         're': re,
         'env': os.environ,
+        'hostname': socket.gethostname()
     }
-    hostname_bin = which('hostname')
-    if hostname_bin:
-        hostname = str(hostname_bin(output=str, error=str)).strip()
-        valid_variables['hostname'] = hostname
-    else:
-        tty.warn("Spack was unable to find the executable `hostname`"
-                 " hostname will be unavailable in conditionals")
+
     return eval(string, valid_variables)
 
 
