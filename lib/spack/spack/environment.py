@@ -439,6 +439,7 @@ class Environment(object):
         else:
             default_manifest = not os.path.exists(self.manifest_path)
             if default_manifest:
+                # No manifest, use default yaml
                 self._read_manifest(default_manifest_yaml)
             else:
                 with open(self.manifest_path) as f:
@@ -448,19 +449,8 @@ class Environment(object):
                 with open(self.lock_path) as f:
                     self._read_lockfile(f)
                 if default_manifest:
+                    # No manifest, set user specs from lockfile
                     self._set_user_specs_from_lockfile()
-
-            if os.path.exists(self.manifest_path):
-                # read the spack.yaml file, if exists
-                with open(self.manifest_path) as f:
-                    self._read_manifest(f)
-            elif self.concretized_user_specs:
-                # if not, take user specs from the lockfile
-                self._set_user_specs_from_lockfile()
-                self.yaml = _read_yaml(default_manifest_yaml)
-            else:
-                # if there's no manifest or lockfile, use the default
-                self._read_manifest(default_manifest_yaml)
 
         if with_view is False:
             self.views = None
