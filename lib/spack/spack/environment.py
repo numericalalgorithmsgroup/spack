@@ -78,6 +78,8 @@ lockfile_format_version = 1
 #: legal first keys in the spack.yaml manifest file
 env_schema_keys = ('spack', 'env')
 
+user_speclist_name = 'specs'
+
 
 def valid_env_name(name):
     return re.match(valid_environment_name_re, name)
@@ -477,10 +479,10 @@ class Environment(object):
                 else:
                     self.spec_lists[name] = user_specs
 
-        spec_list = config_dict(self.yaml).get('specs')
-        user_specs = SpecList('specs', [s for s in spec_list if s],
+        spec_list = config_dict(self.yaml).get(user_speclist_name)
+        user_specs = SpecList(user_speclist_name, [s for s in spec_list if s],
                               self.spec_lists.copy())
-        self.spec_lists['specs'] = user_specs
+        self.spec_lists[user_speclist_name] = user_specs
 
         enable_view = config_dict(self.yaml).get('view')
         # enable_view can be boolean, string, or None
@@ -495,18 +497,19 @@ class Environment(object):
 
     @property
     def user_specs(self):
-        return self.spec_lists['specs']
+        return self.spec_lists[user_speclist_name]
 
     def _set_user_specs_from_lockfile(self):
         """Copy user_specs from a read-in lockfile."""
         self.spec_lists = {
-            'specs': SpecList(
-                'specs', [Spec(s) for s in self.concretized_user_specs]
+            user_speclist_name: SpecList(
+                user_speclist_name, [Spec(s)
+                                     for s in self.concretized_user_specs]
             )
         }
 
     def clear(self):
-        self.spec_lists = {'specs': SpecList()}      # specs read from yaml
+        self.spec_lists = {user_speclist_name: SpecList()} # specs from yaml
         self.concretized_user_specs = []  # user specs from last concretize
         self.concretized_order = []       # roots of last concretize, in order
         self.specs_by_hash = {}           # concretized specs by hash
@@ -649,7 +652,7 @@ class Environment(object):
                                  for n in list(self.spec_lists.keys())[:i])
             speclist.update_reference(new_reference)
 
-    def add(self, user_spec, list_name='specs'):
+    def add(self, user_spec, list_name=user_speclist_name):
         """Add a single user_spec (non-concretized) to the Environment
 
         Returns:
@@ -664,7 +667,7 @@ class Environment(object):
                 'No list %s exists in environment %s' % (list_name, self.name)
             )
 
-        if list_name == 'specs':
+        if list_name == user_speclist_name:
             if not spec.name:
                 raise SpackEnvironmentError(
                     'cannot add anonymous specs to an environment!')
@@ -679,7 +682,7 @@ class Environment(object):
 
         return bool(not existing)
 
-    def remove(self, query_spec, list_name='specs', force=False):
+    def remove(self, query_spec, list_name=user_speclist_name, force=False):
         """Remove specs from an environment that match a query_spec"""
         query_spec = Spec(query_spec)
 
@@ -846,7 +849,8 @@ class Environment(object):
             elif self.views:
                 self.views['default'] = self.view_descriptor_defaults(viewpath)
             else:
-                self.views = {'default': self.view_descriptor_defaults(viewpath)}
+                self.views = {'default': self.view_descriptor_defaults(
+                        viewpath)}
         else:
             self.views.pop('default', None)
 
@@ -1175,7 +1179,8 @@ class Environment(object):
         # put the new user specs in the YAML.
         # This can be done directly because there can't be multiple definitions
         # nor when clauses for `specs` list.
-        yaml_spec_list = config_dict(self.yaml).setdefault('specs', [])
+        yaml_spec_list = config_dict(self.yaml).setdefault(user_speclist_name,
+                                                           [])
         yaml_spec_list[:] = self.user_specs.yaml_list
 
         if self.views and len(self.views) == 1 and self.default_view_path:
