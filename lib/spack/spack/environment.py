@@ -1149,7 +1149,7 @@ class Environment(object):
         # invalidate _repo cache
         self._repo = None
 
-        # put any chagnes in the definitions in the YAML
+        # put any changes in the definitions in the YAML
         for name, speclist in list(self.read_specs.items())[:-1]:
             conf = config_dict(self.yaml)
             active_yaml_lists = [l for l in conf.get('definitions', [])
