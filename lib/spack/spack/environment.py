@@ -465,12 +465,12 @@ class Environment(object):
 
         self.read_specs = OrderedDict()
 
-        for item in list(self.yaml.values())[0].get('definitions', []):
+        for item in config_dict(self.yaml).get('definitions', []):
             entry = copy.deepcopy(item)
             when = _eval_conditional(entry.pop('when', 'True'))
             assert len(entry) == 1
             if when:
-                name, spec_list = list(entry.items())[0]
+                name, spec_list = iter(entry.items()).next()
                 user_specs = SpecList(name, spec_list, self.read_specs.copy())
                 if name in self.read_specs:
                     self.read_specs[name].extend(user_specs)
