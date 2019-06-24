@@ -634,6 +634,20 @@ class Environment(object):
         """Remove this environment from Spack entirely."""
         shutil.rmtree(self.path)
 
+    def update_stale_references(self, from_list=None):
+        """Iterate over spec lists updating references."""
+        if not from_list:
+            from_list = iter(self.read_specs.keys()).next()
+        index = list(self.read_specs.keys()).index(from_list)
+
+        # read_specs is an OrderedDict, all list entries after the modified
+        # list may refer to the modified list. Update stale references
+        for i, (name, speclist) in enumerate(
+            list(self.read_specs.items())[index + 1:], index + 1):
+            new_reference = dict((n, self.read_specs[n])
+                                 for n in list(self.read_specs.keys())[:i])
+            speclist.update_reference(new_reference)
+
     def add(self, user_spec, list_name='specs'):
         """Add a single user_spec (non-concretized) to the Environment
 
@@ -660,15 +674,7 @@ class Environment(object):
         existing = str(spec) in list_to_change.yaml_list
         if not existing:
             list_to_change.add(str(spec))
-            index = list(self.read_specs.keys()).index(list_name)
-
-            # read_specs is an OrderedDict, all list entries after the modified
-            # list may refer to the modified list. Update stale references
-            for i, (name, speclist) in enumerate(
-                    list(self.read_specs.items())[index + 1:], index + 1):
-                new_reference = dict((n, self.read_specs[n])
-                                     for n in list(self.read_specs.keys())[:i])
-                speclist.update_reference(new_reference)
+            self.update_stale_references(list_name)
 
         return bool(not existing)
 
@@ -700,14 +706,7 @@ class Environment(object):
             if spec in list_to_change:
                 list_to_change.remove(spec)
 
-        # read_specs is an OrderedDict, all list entries after the modified
-        # list may refer to the modified list. Update stale references
-        index = list(self.read_specs.keys()).index(list_name)
-        for i, (name, speclist) in enumerate(
-                list(self.read_specs.items())[index + 1:], index + 1):
-            new_reference = dict((n, self.read_specs[n])
-                                 for n in list(self.read_specs.keys())[:i])
-            speclist.update_reference(new_reference)
+        self.update_stale_references(list_name)
 
         # If force, update stale concretized specs
         # Only check specs removed by this operation
