@@ -457,7 +457,7 @@ class Environment(object):
         if with_view is False:
             self.views = None
         elif isinstance(with_view, six.string_types):
-            self.views = {'default': self.create_view_descriptor(with_view)}
+            self.views = {'default': self.view_descriptor_defaults(with_view)}
         # If with_view is None, then defer to the view settings determined by
         # the manifest file
 
@@ -487,9 +487,9 @@ class Environment(object):
         enable_view = config_dict(self.yaml).get('view')
         # enable_view can be boolean, string, or None
         if enable_view is True or enable_view is None:
-            self.views = {'default': self.create_view_descriptor()}
+            self.views = {'default': self.view_descriptor_defaults()}
         elif isinstance(enable_view, six.string_types):
-            self.views = {'default': self.create_view_descriptor(enable_view)}
+            self.views = {'default': self.view_descriptor_defaults(enable_view)}
         elif enable_view:
             self.views = enable_view
         else:
