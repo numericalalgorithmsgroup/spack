@@ -1165,12 +1165,12 @@ class Environment(object):
             for ayl in active_yaml_lists:
                 # If it's not a string, it's a matrix. Those can't have changed
                 ayl[name][:] = [s for s in ayl.setdefault(name, [])
-                                if not isinstance(s, str) or
+                                if not isinstance(s, six.string_types) or
                                 Spec(s) in speclist.specs]
 
             # Put the new specs into the first active list from the yaml
             new_specs = [entry for entry in speclist.yaml_list
-                         if isinstance(entry, str) and
+                         if isinstance(entry, six.string_types) and
                          not any(entry in ayl[name]
                                  for ayl in active_yaml_lists)]
             list_for_new_specs = active_yaml_lists[0].setdefault(name, [])
