@@ -78,7 +78,9 @@ lockfile_format_version = 1
 #: legal first keys in the spack.yaml manifest file
 env_schema_keys = ('spack', 'env')
 
+# Magic names
 user_speclist_name = 'specs'
+default_view_name = 'default'
 
 
 def valid_env_name(name):
@@ -144,8 +146,8 @@ def activate(
             cmds += 'export SPACK_OLD_PS1="${PS1}"; fi;\n'
             cmds += 'export PS1="%s ${PS1}";\n' % prompt
 
-    if add_view and env.default_view_path:
-        cmds += env.add_view_to_shell(shell)
+    if add_view and default_view_name in env.views:
+        cmds += env.add_default_view_to_shell(shell)
 
     return cmds
 
@@ -186,8 +188,8 @@ def deactivate(shell='sh'):
         cmds += 'unset SPACK_OLD_PS1; export SPACK_OLD_PS1;\n'
         cmds += 'fi;\n'
 
-    if _active_environment.default_view_path:
-        cmds += _active_environment.rm_view_from_shell(shell)
+    if default_view_name in _active_environment.views:
+        cmds += _active_environment.rm_default_view_from_shell(shell)
 
     tty.debug("Deactivated environmennt '%s'" % _active_environment.name)
     _active_environment = None
@@ -412,6 +414,69 @@ def _eval_conditional(string):
     return eval(string, valid_variables)
 
 
+class ViewDescriptor(object):
+    def __init__(self, root, projections={}, select=[], exclude=[]):
+        self.root = root
+        self.projections = projections
+        self.select = select
+        self.select_fn = lambda x: any(x.satisfies(s) for s in self.select)
+        self.exclude = exclude
+        self.exclude_fn = lambda x: not any(x.satisfies(e) for e in self.exclude)
+
+    def to_dict(self):
+        ret =  {'root': self.root}
+        if self.projections:
+            ret['projections'] = self.projections
+        if self.select:
+            ret['select'] = self.select
+        if self.exclude:
+            ret['exclude'] = self.exclude
+        return ret
+
+    @staticmethod
+    def from_dict(d):
+        return ViewDescriptor(d['root'],
+                              d.get('projections', {}),
+                              d.get('select', []),
+                              d.get('exclude', []))
+
+    def view(self):
+        return YamlFilesystemView(self.root, spack.store.layout,
+                                  ignore_conflicts=True,
+                                  projections=self.projections)
+
+    def regenerate(self, specs):
+        specs_for_view = []
+        for spec in specs:
+            # The view does not store build deps, so if we want it to
+            # recognize environment specs (which do store build deps), then
+            # they need to be stripped
+            specs_for_view.append(spack.spec.Spec.from_dict(
+                spec.to_dict(all_deps=False)
+            ))
+
+        if self.select:
+            specs_for_view = list(filter(self.select_fn, specs_for_view))
+
+        if self.exclude:
+            specs_for_view = list(filter(self.exclude_fn, specs_for_view))
+
+        installed_specs_for_view = set(s for s in specs_for_view
+                                       if s.package.installed)
+
+        view = self.view()
+
+        view.clean()
+        specs_in_view = set(view.get_all_specs())
+        tty.msg("Updating view at {0}".format(self.root))
+
+        rm_specs = specs_in_view - installed_specs_for_view
+        view.remove_specs(*rm_specs, with_dependents=False)
+
+        add_specs = installed_specs_for_view - specs_in_view
+        view.add_specs(*add_specs, with_dependencies=False)
+
+
 class Environment(object):
     def __init__(self, path, init_file=None, with_view=None):
         """Create a new environment.
@@ -455,9 +520,11 @@ class Environment(object):
                     self._set_user_specs_from_lockfile()
 
         if with_view is False:
-            self.views = None
+            self.views = {}
+        elif with_view is True:
+            self.views = {default_view_name: ViewDescriptor(self.view_path_default)}
         elif isinstance(with_view, six.string_types):
-            self.views = {'default': self.view_descriptor_defaults(with_view)}
+            self.views = {default_view_name: ViewDescriptor(with_view)}
         # If with_view is None, then defer to the view settings determined by
         # the manifest file
 
@@ -487,13 +554,14 @@ class Environment(object):
         enable_view = config_dict(self.yaml).get('view')
         # enable_view can be boolean, string, or None
         if enable_view is True or enable_view is None:
-            self.views = {'default': self.view_descriptor_defaults()}
+            self.views = {default_view_name: ViewDescriptor(self.view_path_default)}
         elif isinstance(enable_view, six.string_types):
-            self.views = {'default': self.view_descriptor_defaults(enable_view)}
+            self.views = {default_view_name: ViewDescriptor(enable_view)}
         elif enable_view:
-            self.views = enable_view
+            self.views = dict((name, ViewDescriptor.from_dict(values))
+                              for name, values in enable_view.items())
         else:
-            self.views = None
+            self.views = {}
 
     @property
     def user_specs(self):
@@ -562,14 +630,9 @@ class Environment(object):
     def log_path(self):
         return os.path.join(self.path, env_subdir_name, 'logs')
 
-    def view_descriptor_defaults(self, root=None):
-        # view descriptor with all values set to default
-        if root is None:
-            root = self.view_path_default
-        return {'root': root, 'projections': {}}
-
     @property
     def view_path_default(self):
+        # default path for environment views
         return os.path.join(self.env_subdir_path, 'view')
 
     @property
@@ -810,49 +873,28 @@ class Environment(object):
             os.symlink(spec.package.build_log_path, build_log_link)
 
     @property
-    def all_views(self):
-        if not self.views:
-            raise SpackEnvironmentError(
-                "{0} does not have a view enabled".format(self.name))
-
-        return [YamlFilesystemView(view['root'], spack.store.layout,
-                                   ignore_conflicts=True,
-                                   projections=view['projections'])
-                for view in self.views.values()]
-
-    @property
     def default_view(self):
         if not self.views:
             raise SpackEnvironmentError(
                 "{0} does not have a view enabled".format(self.name))
 
-        if 'default' not in self.views:
+        if default_view_name not in self.views:
             raise SpackEnvironmentError(
                 "{0} does not have a default view enabled".format(self.name))
 
-        return YamlFilesystemView(self.default_view_path,
-                                  spack.store.layout, ignore_confligs=True)
-
-    @property
-    def default_view_path(self):
-        if not self.views or 'default' not in self.views:
-            return None
-        return self.views['default']['root']
+        return self.views[default_view_name]
 
     def update_default_view(self, viewpath):
-        if self.default_view_path and self.default_view_path != viewpath:
-            shutil.rmtree(self.default_view_path)
+        if default_view_name in self.views and self.default_view.root != viewpath:
+            shutil.rmtree(self.default_view.root)
 
         if viewpath:
-            if self.default_view_path:
-                self.views['default']['root'] = viewpath
-            elif self.views:
-                self.views['default'] = self.view_descriptor_defaults(viewpath)
+            if default_view_name in self.views:
+                self.default_view.root = viewpath
             else:
-                self.views = {'default': self.view_descriptor_defaults(
-                        viewpath)}
+                self.views[default_view_name] = ViewDescriptor(viewpath)
         else:
-            self.views.pop('default', None)
+            self.views.pop(default_view_name, None)
 
     def regenerate_views(self):
         if not self.views:
@@ -860,43 +902,9 @@ class Environment(object):
                       " maintain a view")
             return
 
-        for name, view in zip(self.views.keys(), self.all_views):
-            self.regenerate_view(name, view)
-
-    def regenerate_view(self, name, view):
-        view_descriptor = self.views[name]
-
-        specs_for_view = []
-        for spec in self._get_environment_specs():
-            # The view does not store build deps, so if we want it to
-            # recognize environment specs (which do store build deps), then
-            # they need to be stripped
-            specs_for_view.append(spack.spec.Spec.from_dict(
-                spec.to_dict(all_deps=False)
-            ))
-
-        select = view_descriptor.get('select', [])
-        if select:
-            select_fn = lambda x: any(x.satisfies(s) for s in select)
-            specs_for_view = list(filter(select_fn, specs_for_view))
-
-        exclude = view_descriptor.get('exclude', [])
-        if exclude:
-            exclude_fn = lambda x: not any(x.satisfies(e) for e in exclude)
-            specs_for_view = list(filter(exclude_fn, specs_for_view))
-
-        installed_specs_for_view = set(s for s in specs_for_view
-                                       if s.package.installed)
-
-        view.clean()
-        specs_in_view = set(view.get_all_specs())
-        tty.msg("Updating view at {0}".format(view_descriptor['root']))
-
-        rm_specs = specs_in_view - installed_specs_for_view
-        view.remove_specs(*rm_specs, with_dependents=False)
-
-        add_specs = installed_specs_for_view - specs_in_view
-        view.add_specs(*add_specs, with_dependencies=False)
+        specs = self._get_environment_specs()
+        for view in self.views.values():
+            view.regenerate(specs)
 
     def _shell_vars(self):
         updates = [
@@ -910,21 +918,22 @@ class Environment(object):
             ('CMAKE_PREFIX_PATH', ['']),
         ]
         path_updates = list()
-        for var, subdirs in updates:
-            paths = filter(lambda x: os.path.exists(x),
-                           list(os.path.join(self.default_view_path, x)
-                                for x in subdirs))
-            path_updates.append((var, paths))
+        if default_view_name in self.views:
+            for var, subdirs in updates:
+                paths = filter(lambda x: os.path.exists(x),
+                               list(os.path.join(self.default_view.root, x)
+                                    for x in subdirs))
+                path_updates.append((var, paths))
         return path_updates
 
-    def add_view_to_shell(self, shell):
+    def add_default_view_to_shell(self, shell):
         env_mod = EnvironmentModifications()
         for var, paths in self._shell_vars():
             for path in paths:
                 env_mod.prepend_path(var, path)
         return env_mod.shell_modifications(shell)
 
-    def rm_view_from_shell(self, shell):
+    def rm_default_view_from_shell(self, shell):
         env_mod = EnvironmentModifications()
         for var, paths in self._shell_vars():
             for path in paths:
@@ -1155,7 +1164,11 @@ class Environment(object):
         self._repo = None
 
         # put any changes in the definitions in the YAML
-        for name, speclist in list(self.spec_lists.items())[:-1]:
+        for name, speclist in self.spec_lists.items():
+            if name == user_speclist_name:
+                # The primary list is handled differently
+                continue
+
             conf = config_dict(self.yaml)
             active_yaml_lists = [l for l in conf.get('definitions', [])
                                  if name in l and
@@ -1183,16 +1196,18 @@ class Environment(object):
                                                            [])
         yaml_spec_list[:] = self.user_specs.yaml_list
 
-        if self.views and len(self.views) == 1 and self.default_view_path:
-            path = self.default_view_path
-            if self.views['default'] == self.view_descriptor_defaults():
+        if self.views and len(self.views) == 1 and default_view_name in self.views:
+            path = self.default_view.root
+            if self.default_view == ViewDescriptor(self.view_path_default):
                 view = True
-            elif self.views['default'] == self.view_descriptor_defaults(path):
+            elif self.default_view == ViewDescriptor(path):
                 view = path
             else:
-                view = self.views
+                view = dict((name, view.to_dict())
+                            for name, view in self.views.items())
         elif self.views:
-            view = self.views
+                view = dict((name, view.to_dict())
+                            for name, view in self.views.items())
         else:
             view = False
 
