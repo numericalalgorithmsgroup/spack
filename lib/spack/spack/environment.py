@@ -31,7 +31,6 @@ import spack.architecture as architecture
 from spack.spec import Spec
 from spack.spec_list import SpecList, InvalidSpecConstraintError
 from spack.variant import UnknownVariantError
-from spack.util.executable import which
 
 #: environment variable used to indicate the active environment
 spack_env_var = 'SPACK_ENV'
@@ -80,7 +79,7 @@ env_schema_keys = ('spack', 'env')
 
 # Magic names
 user_speclist_name = 'specs'
-default_view_name = 'default'
+def_view_name = 'default'
 
 
 def valid_env_name(name):
@@ -146,7 +145,7 @@ def activate(
             cmds += 'export SPACK_OLD_PS1="${PS1}"; fi;\n'
             cmds += 'export PS1="%s ${PS1}";\n' % prompt
 
-    if add_view and default_view_name in env.views:
+    if add_view and def_view_name in env.views:
         cmds += env.add_default_view_to_shell(shell)
 
     return cmds
@@ -188,7 +187,7 @@ def deactivate(shell='sh'):
         cmds += 'unset SPACK_OLD_PS1; export SPACK_OLD_PS1;\n'
         cmds += 'fi;\n'
 
-    if default_view_name in _active_environment.views:
+    if def_view_name in _active_environment.views:
         cmds += _active_environment.rm_default_view_from_shell(shell)
 
     tty.debug("Deactivated environmennt '%s'" % _active_environment.name)
@@ -421,10 +420,11 @@ class ViewDescriptor(object):
         self.select = select
         self.select_fn = lambda x: any(x.satisfies(s) for s in self.select)
         self.exclude = exclude
-        self.exclude_fn = lambda x: not any(x.satisfies(e) for e in self.exclude)
+        self.exclude_fn = lambda x: not any(x.satisfies(e)
+                                            for e in self.exclude)
 
     def to_dict(self):
-        ret =  {'root': self.root}
+        ret = {'root': self.root}
         if self.projections:
             ret['projections'] = self.projections
         if self.select:
@@ -522,9 +522,10 @@ class Environment(object):
         if with_view is False:
             self.views = {}
         elif with_view is True:
-            self.views = {default_view_name: ViewDescriptor(self.view_path_default)}
+            self.views = {
+                def_view_name: ViewDescriptor(self.view_path_default)}
         elif isinstance(with_view, six.string_types):
-            self.views = {default_view_name: ViewDescriptor(with_view)}
+            self.views = {def_view_name: ViewDescriptor(with_view)}
         # If with_view is None, then defer to the view settings determined by
         # the manifest file
 
@@ -554,9 +555,10 @@ class Environment(object):
         enable_view = config_dict(self.yaml).get('view')
         # enable_view can be boolean, string, or None
         if enable_view is True or enable_view is None:
-            self.views = {default_view_name: ViewDescriptor(self.view_path_default)}
+            self.views = {
+                def_view_name: ViewDescriptor(self.view_path_default)}
         elif isinstance(enable_view, six.string_types):
-            self.views = {default_view_name: ViewDescriptor(enable_view)}
+            self.views = {def_view_name: ViewDescriptor(enable_view)}
         elif enable_view:
             self.views = dict((name, ViewDescriptor.from_dict(values))
                               for name, values in enable_view.items())
@@ -577,7 +579,7 @@ class Environment(object):
         }
 
     def clear(self):
-        self.spec_lists = {user_speclist_name: SpecList()} # specs from yaml
+        self.spec_lists = {user_speclist_name: SpecList()}  # specs from yaml
         self.concretized_user_specs = []  # user specs from last concretize
         self.concretized_order = []       # roots of last concretize, in order
         self.specs_by_hash = {}           # concretized specs by hash
@@ -710,7 +712,8 @@ class Environment(object):
         # spec_lists is an OrderedDict, all list entries after the modified
         # list may refer to the modified list. Update stale references
         for i, (name, speclist) in enumerate(
-            list(self.spec_lists.items())[index + 1:], index + 1):
+            list(self.spec_lists.items())[index + 1:], index + 1
+        ):
             new_reference = dict((n, self.spec_lists[n])
                                  for n in list(self.spec_lists.keys())[:i])
             speclist.update_reference(new_reference)
@@ -878,23 +881,23 @@ class Environment(object):
             raise SpackEnvironmentError(
                 "{0} does not have a view enabled".format(self.name))
 
-        if default_view_name not in self.views:
+        if def_view_name not in self.views:
             raise SpackEnvironmentError(
                 "{0} does not have a default view enabled".format(self.name))
 
-        return self.views[default_view_name]
+        return self.views[def_view_name]
 
     def update_default_view(self, viewpath):
-        if default_view_name in self.views and self.default_view.root != viewpath:
+        if def_view_name in self.views and self.default_view.root != viewpath:
             shutil.rmtree(self.default_view.root)
 
         if viewpath:
-            if default_view_name in self.views:
+            if def_view_name in self.views:
                 self.default_view.root = viewpath
             else:
-                self.views[default_view_name] = ViewDescriptor(viewpath)
+                self.views[def_view_name] = ViewDescriptor(viewpath)
         else:
-            self.views.pop(default_view_name, None)
+            self.views.pop(def_view_name, None)
 
     def regenerate_views(self):
         if not self.views:
@@ -918,7 +921,7 @@ class Environment(object):
             ('CMAKE_PREFIX_PATH', ['']),
         ]
         path_updates = list()
-        if default_view_name in self.views:
+        if def_view_name in self.views:
             for var, subdirs in updates:
                 paths = filter(lambda x: os.path.exists(x),
                                list(os.path.join(self.default_view.root, x)
@@ -1055,7 +1058,6 @@ class Environment(object):
         If these specs appear under different user_specs, only one copy
         is added to the list returned.
         """
-        package_to_spec = {}
         spec_list = list()
 
         for spec_hash in self.concretized_order:
@@ -1196,7 +1198,7 @@ class Environment(object):
                                                            [])
         yaml_spec_list[:] = self.user_specs.yaml_list
 
-        if self.views and len(self.views) == 1 and default_view_name in self.views:
+        if self.views and len(self.views) == 1 and def_view_name in self.views:
             path = self.default_view.root
             if self.default_view == ViewDescriptor(self.view_path_default):
                 view = True
@@ -1206,8 +1208,8 @@ class Environment(object):
                 view = dict((name, view.to_dict())
                             for name, view in self.views.items())
         elif self.views:
-                view = dict((name, view.to_dict())
-                            for name, view in self.views.items())
+            view = dict((name, view.to_dict())
+                        for name, view in self.views.items())
         else:
             view = False
 
