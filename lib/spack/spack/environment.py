@@ -540,7 +540,7 @@ class Environment(object):
             when = _eval_conditional(entry.pop('when', 'True'))
             assert len(entry) == 1
             if when:
-                name, spec_list = iter(entry.items()).next()
+                name, spec_list = next(iter(entry.items()))
                 user_specs = SpecList(name, spec_list, self.spec_lists.copy())
                 if name in self.spec_lists:
                     self.spec_lists[name].extend(user_specs)
@@ -706,7 +706,7 @@ class Environment(object):
     def update_stale_references(self, from_list=None):
         """Iterate over spec lists updating references."""
         if not from_list:
-            from_list = iter(self.spec_lists.keys()).next()
+            from_list = next(iter(self.spec_lists.keys()))
         index = list(self.spec_lists.keys()).index(from_list)
 
         # spec_lists is an OrderedDict, all list entries after the modified
