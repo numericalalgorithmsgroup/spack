@@ -80,6 +80,7 @@ env_schema_keys = ('spack', 'env')
 # Magic names
 user_speclist_name = 'specs'
 def_view_name = 'default'
+def_view_link = 'roots'
 
 
 def valid_env_name(name):
@@ -414,7 +415,8 @@ def _eval_conditional(string):
 
 
 class ViewDescriptor(object):
-    def __init__(self, root, projections={}, select=[], exclude=[], link='roots'):
+    def __init__(self, root, projections={}, select=[], exclude=[],
+                 link=def_view_link):
         self.root = root
         self.projections = projections
         self.select = select
@@ -432,7 +434,7 @@ class ViewDescriptor(object):
             ret['select'] = self.select
         if self.exclude:
             ret['exclude'] = self.exclude
-        if self.link != 'roots':
+        if self.link != def_view_link:
             ret['link'] = self.link
         return ret
 
@@ -442,7 +444,7 @@ class ViewDescriptor(object):
                               d.get('projections', {}),
                               d.get('select', []),
                               d.get('exclude', []),
-                              d.get('link', 'roots'))
+                              d.get('link', def_view_link))
 
     def view(self):
         return YamlFilesystemView(self.root, spack.store.layout,

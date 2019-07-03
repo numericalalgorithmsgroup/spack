@@ -1245,8 +1245,8 @@ env:
                                  (spec.version, spec.compiler.name)))
 
 
-def test_view_link_roots(tmpdir, mock_fetch, mock_packages,
-                                       mock_archive, install_mockery):
+def test_view_link_roots(tmpdir, mock_fetch, mock_packages, mock_archive,
+                         install_mockery):
     filename = str(tmpdir.join('spack.yaml'))
     viewdir = str(tmpdir.join('view'))
     with open(filename, 'w') as f:
@@ -1277,17 +1277,17 @@ env:
         for spec in test._get_environment_specs():
             if spec in test.roots() and (spec.satisfies('%gcc') and
                                          not spec.satisfies('callpath')):
-                    assert os.path.exists(
-                        os.path.join(viewdir, spec.name, '%s-%s' %
-                                     (spec.version, spec.compiler.name)))
+                assert os.path.exists(
+                    os.path.join(viewdir, spec.name, '%s-%s' %
+                                 (spec.version, spec.compiler.name)))
             else:
                 assert not os.path.exists(
                     os.path.join(viewdir, spec.name, '%s-%s' %
                                  (spec.version, spec.compiler.name)))
 
 
-def test_view_link_all(tmpdir, mock_fetch, mock_packages,
-                                       mock_archive, install_mockery):
+def test_view_link_all(tmpdir, mock_fetch, mock_packages, mock_archive,
+                       install_mockery):
     filename = str(tmpdir.join('spack.yaml'))
     viewdir = str(tmpdir.join('view'))
     with open(filename, 'w') as f:
@@ -1318,9 +1318,9 @@ env:
         for spec in test._get_environment_specs():
             if spec in test.roots() and (spec.satisfies('%gcc') and
                                          not spec.satisfies('callpath')):
-                    assert os.path.exists(
-                        os.path.join(viewdir, spec.name, '%s-%s' %
-                                     (spec.version, spec.compiler.name)))
+                assert os.path.exists(
+                    os.path.join(viewdir, spec.name, '%s-%s' %
+                                 (spec.version, spec.compiler.name)))
             else:
                 assert not os.path.exists(
                     os.path.join(viewdir, spec.name, '%s-%s' %
