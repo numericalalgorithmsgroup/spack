@@ -414,7 +414,7 @@ def _eval_conditional(string):
 
 
 class ViewDescriptor(object):
-    def __init__(self, root, projections={}, select=[], exclude=[]):
+    def __init__(self, root, projections={}, select=[], exclude=[], link='roots'):
         self.root = root
         self.projections = projections
         self.select = select
@@ -422,6 +422,7 @@ class ViewDescriptor(object):
         self.exclude = exclude
         self.exclude_fn = lambda x: not any(x.satisfies(e)
                                             for e in self.exclude)
+        self.link = link
 
     def to_dict(self):
         ret = {'root': self.root}
@@ -431,6 +432,8 @@ class ViewDescriptor(object):
             ret['select'] = self.select
         if self.exclude:
             ret['exclude'] = self.exclude
+        if self.link != 'roots':
+            ret['link'] = self.link
         return ret
 
     @staticmethod
@@ -438,22 +441,25 @@ class ViewDescriptor(object):
         return ViewDescriptor(d['root'],
                               d.get('projections', {}),
                               d.get('select', []),
-                              d.get('exclude', []))
+                              d.get('exclude', []),
+                              d.get('link', 'roots'))
 
     def view(self):
         return YamlFilesystemView(self.root, spack.store.layout,
                                   ignore_conflicts=True,
                                   projections=self.projections)
 
-    def regenerate(self, specs):
+    def regenerate(self, all_specs, roots):
         specs_for_view = []
+        specs = all_specs if self.link == 'all' else roots
         for spec in specs:
             # The view does not store build deps, so if we want it to
             # recognize environment specs (which do store build deps), then
             # they need to be stripped
-            specs_for_view.append(spack.spec.Spec.from_dict(
-                spec.to_dict(all_deps=False)
-            ))
+            if spec.concrete:  # Do not link unconcretized roots
+                specs_for_view.append(spack.spec.Spec.from_dict(
+                    spec.to_dict(all_deps=False)
+                ))
 
         if self.select:
             specs_for_view = list(filter(self.select_fn, specs_for_view))
@@ -907,7 +913,7 @@ class Environment(object):
 
         specs = self._get_environment_specs()
         for view in self.views.values():
-            view.regenerate(specs)
+            view.regenerate(specs, self.roots())
 
     def _shell_vars(self):
         updates = [
