@@ -1316,8 +1316,7 @@ env:
 
         test = ev.read('test')
         for spec in test._get_environment_specs():
-            if spec in test.roots() and (spec.satisfies('%gcc') and
-                                         not spec.satisfies('callpath')):
+            if spec.satisfies('%gcc') and not spec.satisfies('callpath'):
                 assert os.path.exists(
                     os.path.join(viewdir, spec.name, '%s-%s' %
                                  (spec.version, spec.compiler.name)))
