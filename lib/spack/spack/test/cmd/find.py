@@ -7,7 +7,12 @@ import argparse
 
 import pytest
 import spack.cmd.find
+
 from spack.util.pattern import Bunch
+from spack.main import SpackCommand
+
+
+find = SpackCommand('find')
 
 
 @pytest.fixture(scope='module')
@@ -98,3 +103,10 @@ def test_tag2_tag3(parser, specs):
     spack.cmd.find.find(parser, args)
 
     assert len(specs) == 0
+
+
+@pytest.mark.db
+@pytest.mark.usefixtures('database')
+def test_find_command_basic_usage():
+    output = find()
+    assert 'mpileaks' in output
