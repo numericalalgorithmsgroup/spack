@@ -13,12 +13,18 @@ class FontUtil(AutotoolsPackage):
     url      = "https://www.x.org/archive/individual/font/font-util-1.3.1.tar.gz"
     version('1.3.1', 'd153a9af216e4498fa171faea2c82514')
 
+    depends_on('autoconf', type='build')
+    depends_on('automake', type='build')
+
     depends_on('pkgconfig', type='build')
     depends_on('util-macros', type='build')
 
     depends_on('bdftopcf', type='build')
     depends_on('mkfontscale', type='build')
     depends_on('mkfontdir', type='build')
+
+    depends_on('autoconf', type='build')
+    depends_on('automake', type='build')
 
     font_baseurl = 'https://www.x.org/archive/individual/font/'
     fonts = []
