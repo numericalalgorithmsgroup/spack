@@ -107,6 +107,7 @@ class Python(AutotoolsPackage):
     variant('tix',      default=False, description='Build Tix module')
 
     depends_on('pkgconfig@0.9.0:', type='build')
+    depends_on('gettext')
 
     # Optional dependencies
     # See detect_modules() in setup.py for details
@@ -125,7 +126,13 @@ class Python(AutotoolsPackage):
     depends_on('tk', when='+tkinter')
     depends_on('tcl', when='+tkinter')
     depends_on('tix', when='+tix')
-    depends_on('libuuid', when='+uuid')
+    if sys.platform != 'darwin':
+        # On macOS systems, Spack's libuuid conflicts with the system-installed
+        # version and breaks anything linked against Cocoa/Carbon. Since the
+        # system-provided version is sufficient to build Python's UUID support,
+        # the easy solution is to only depend on Spack's libuuid when *not* on
+        # a Mac.
+        depends_on('libuuid', when='+uuid')
 
     patch('tkinter.patch', when='@:2.8,3.3: platform=darwin')
 
@@ -146,6 +153,11 @@ class Python(AutotoolsPackage):
     )
     conflicts('+tix', when='~tkinter',
               msg='python+tix requires python+tix+tkinter')
+
+    # Python 3.6.7 and above can not be compiled with the Intel compiler
+    # https://bugs.python.org/issue35473
+    # https://bugs.python.org/issue37415
+    conflicts('%intel', when='@3.6.7:')
 
     _DISTUTIL_VARS_TO_SAVE = ['LDSHARED']
     _DISTUTIL_CACHE_FILENAME = 'sysconfig.json'
