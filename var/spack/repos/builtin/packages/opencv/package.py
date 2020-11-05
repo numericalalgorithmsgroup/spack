@@ -21,6 +21,9 @@ class Opencv(CMakePackage, CudaPackage):
     git      = 'https://github.com/opencv/opencv.git'
 
     version('master', branch='master')
+    version('4.5.0', sha256='dde4bf8d6639a5d3fe34d5515eab4a15669ded609a1d622350c7ff20dace1907')
+    version('4.4.0', sha256='bb95acd849e458be7f7024d17968568d1ccd2f0681d47fd60d34ffb4b8c52563')
+    version('4.3.0', sha256='68bc40cbf47fdb8ee73dfaf0d9c6494cd095cf6294d99de445ab64cf853d278a')
     version('4.2.0', sha256='9ccb2192d7e8c03c58fee07051364d94ed7599363f3b0dce1c5e6cc11c1bb0ec')
     version('4.1.2', sha256='385dd0a9c25e67ef0dd60e022d2a2d7b17e2f36819cf3cb46aa8cdff5c5282c9')
     version('4.1.1', sha256='5de5d96bdfb9dad6e6061d70f47a0a91cee96bb35afb9afb9ecb3d43e243d217')
@@ -110,13 +113,14 @@ class Opencv(CMakePackage, CudaPackage):
 
     depends_on('hdf5', when='+contrib')
     depends_on('hdf5', when='+cuda')
-    depends_on('blas', when='+lapack')
+    depends_on('blas+cblas', when='+lapack')
 
     # Patch to fix conflict between CUDA and OpenCV (reproduced with 3.3.0
     # and 3.4.1) header file that have the same name.Problem is fixed in
     # the current development branch of OpenCV. See #8461 for more information.
     patch('dnn_cuda.patch', when='@3.3.0:3.4.1+cuda+dnn')
 
+    patch('opencv4-link-with-cblas-for-lapack.patch', when="@4.0.0:")
     patch('opencv3.2_cmake.patch', when='@3.2')
     patch('opencv3.2_vtk.patch', when='@3.2+vtk')
     patch('opencv3.2_regacyvtk.patch', when='@3.2+vtk')
