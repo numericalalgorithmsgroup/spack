@@ -37,8 +37,15 @@ class PyGrpcio(PythonPackage):
 
         for dep in self.spec.dependencies(deptype='link'):
             query = self.spec[dep.name]
-            env.prepend_path('LIBRARY_PATH', query.libs.directories[0])
-            env.prepend_path('CPATH', query.headers.directories[0])
+            try:
+                env.prepend_path('LIBRARY_PATH', query.libs.directories[0])
+                env.prepend_path('CPATH', query.headers.directories[0])
+            except IndexError:
+                # This means the dep spec had no header or lib directories defined
+                # presumably just a base prefix. For now, just pass and hope it is a
+                # system dir...
+                pass
+
 
     def patch(self):
         if self.spec.satisfies('%fj'):
