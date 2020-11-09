@@ -1,0 +1,22 @@
+diff -aur a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt	2020-07-16 06:32:00.000000000 +0100
++++ b/CMakeLists.txt	2020-11-05 14:07:56.996147168 +0000
+@@ -324,7 +324,6 @@
+ endforeach()
+ 
+ include_directories("include")
+-include_directories("3rdparty/nvidia_cub")
+ include_directories("3rdparty/tvm/nnvm/include")
+ include_directories("3rdparty/tvm/include")
+ include_directories("3rdparty/dmlc-core/include")
+@@ -638,6 +637,10 @@
+   link_directories(${CUDAToolkit_LIBRARY_DIR})
+ endif()
+ 
++if(CUDAToolkit_VERSION_MAJOR LESS "11")
++  include_directories("3rdparty/nvidia_cub")
++endif()
++
+ # unsupported: if caffe is a subdirectory of mxnet, load its CMakeLists.txt as well
+ if(USE_PLUGIN_CAFFE)
+   if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/caffe)
