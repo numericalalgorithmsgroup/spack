@@ -95,7 +95,7 @@ class Mxnet(CMakePackage, CudaPackage):
             # Need to format as 6.2 7.0 etc.
             mxnet_arch = " ".join(
                 [
-                    ".".join(arch)
+                    "{0:.1f}".format(float(arch) / 10.0)
                     for arch in self.spec.variants["cuda_arch"].value
                 ]
             )
